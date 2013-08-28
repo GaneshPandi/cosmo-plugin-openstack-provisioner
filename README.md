@@ -1,4 +1,4 @@
-cosmo-plugins
+cosmo-openstack
 =============
 
-Plugins for the cosmo framework
+Cosmo plugin for openstack nova
