@@ -12,11 +12,9 @@ setuptools.setup(
     license='LICENSE.txt',
     description='Plugin for provisioning vagrant hosts',
     install_requires=[
-        "python-vagrant>=0.3.1",
+        "python-novaclient",
         "billiard==2.7.3.28",
-        "celery==3.0.19",
-        "fabric",
-        "bernhard"
+        "celery==3.0.19"
     ],
     tests_require=['nose']
 )
