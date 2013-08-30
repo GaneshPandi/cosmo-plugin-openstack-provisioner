@@ -3,13 +3,13 @@ import random
 import string
 import sys
 import inspect
-
+import time
+from nose.tools import *
 from novaclient.v1_1 import client
 import time
 import nova_config
-import keystone_config
 from openstack_host_provisioner import tasks
-from nose.tools import *
+from openstack_host_provisioner import monitor
 
 __author__ = 'elip'
 
@@ -21,10 +21,8 @@ class TestClass:
         self.logger = logging.getLogger("test_openstack_host_provisioner")
         self.logger.level = logging.DEBUG
         self.logger.info("setUp called")
-        self.openstack_credentials = {k:v for k,v in keystone_config.__dict__.iteritems() if not k.startswith('_')}
-        self.nova = tasks._init_client(self.openstack_credentials, region=nova_config.region_name)
-        self.logger.info(self.nova.flavors.list())
-        self.name_prefix = 'cosmo_test_openstack_host_provisioner_{0}_'.format(_id_generator(3))
+        self.nova = tasks._init_client(region=nova_config.region_name)
+        self.name_prefix = 'cosmo_test_openstack_host_provisioner_{0}_'.format(self._id_generator(3))
         self.logger.info("setup")
 
     def tearDown(self):
@@ -42,13 +40,11 @@ class TestClass:
                 self.logger.warning("Failed to delete server with name " + server.name)
 
     def test_provision(self):
-
         self.logger.info("Running " + str(inspect.stack()[0][3] + " : "))
         name = self.name_prefix + "test_provision"
 
         self.logger.info("Provisioning server with name " + name)
-        tasks.provision(openstack_credentials=self.openstack_credentials,
-                        region=nova_config.region_name,
+        tasks.provision(region=nova_config.region_name,
                         __cloudify_id=name,
                         image_id=nova_config.image_id,
                         flavor_id=nova_config.flavor_id)
@@ -59,22 +55,20 @@ class TestClass:
         assert_equals(server.name, name, "Server lookup was incorrect")
         assert_equals(int(server.image['id']), nova_config.image_id)
         assert_equals(int(server.flavor['id']), nova_config.flavor_id)
-
+        self._wait_for_machine_state(name, u'ACTIVE')
 
     def test_terminate(self):
         self.logger.info("Running " + str(inspect.stack()[0][3] + " : "))
         name = self.name_prefix + "test_provision"
 
         self.logger.info("Provisioning server with name " + name)
-        tasks.provision(openstack_credentials=self.openstack_credentials,
-                        region=nova_config.region_name,
+        tasks.provision(region=nova_config.region_name,
                         __cloudify_id=name,
                         image_id=nova_config.image_id,
                         flavor_id=nova_config.flavor_id)
 
         self.logger.info("Terminating server with name " + name)
-        tasks.terminate(openstack_credentials=self.openstack_credentials,
-                        __cloudify_id=name)
+        tasks.terminate(__cloudify_id=name, region=nova_config.region_name)
 
         expire = time.time() + 10
         while time.time() < expire:
@@ -88,7 +82,22 @@ class TestClass:
                 return
         raise Exception("Server with name " + name + " was not terminated after 10 seconds")
 
-def _id_generator(self, size=6, chars=string.ascii_uppercase + string.digits):
-    return ''.join(random.choice(chars) for x in range(size))
+    def _id_generator(self, size=6, chars=string.ascii_uppercase + string.digits):
+        return ''.join(random.choice(chars) for x in range(size))
 
+    def _wait_for_machine_state(self, name, expected_state):        
+        while True:
+            actual_state = self._get_machine_state(name)
+            if (actual_state == expected_state):
+                break
+            self.logger.info('waiting for machine {0} expected state:{1} current state:{2}'.format(name,expected_state, actual_state))
+            time.sleep(10)
 
+        self.logger.info('machine {0} reached expected machine state {1}'.format(name,expected_state))
+
+    def _get_machine_state(self, name):
+        ttl = 0
+        events = monitor._probe(self.nova, ttl)
+        tags='name={0}'.format(name)
+        return next((e['state'] for e in events if e['tags']==tags), None)
+        
