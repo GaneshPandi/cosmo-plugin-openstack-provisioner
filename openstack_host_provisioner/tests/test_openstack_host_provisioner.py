@@ -53,8 +53,8 @@ class TestClass:
         self.logger.info("Successfully provisioned server : " + str(server))
         assert server is not None, "Could not find any servers with name{0} after provisioning".format(name)
         assert_equals(server.name, name, "Server lookup was incorrect")
-        assert_equals(int(server.image['id']), nova_config.image_id)
-        assert_equals(int(server.flavor['id']), nova_config.flavor_id)
+        assert_equals(str(server.image['id']), str(nova_config.image_id))
+        assert_equals(str(server.flavor['id']), str(nova_config.flavor_id))
         self._wait_for_machine_state(name, u'ACTIVE')
 
     def test_terminate(self):
