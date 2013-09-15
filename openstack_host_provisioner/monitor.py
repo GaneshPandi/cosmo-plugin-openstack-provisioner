@@ -48,8 +48,8 @@ class OpenstackStatusMonitor(object):
         ttl = self.interval * 3
         try:
             for event in _probe(self.nova, ttl):
-                print event
-                #self.riemann.send(event)
+                # print event
+                self.riemann.send(event)
         except Exception, e:
             sys.stderr.write("Openstack monitor error: {0}\n".format(e))
 
@@ -131,7 +131,7 @@ def _event(host, ttl, now):
         'service': 'openstack machine status',
         'time': now,
         'state': host.status,
-        'tags': 'name={0}'.format(host.name),
+        'tags': ['name={0}'.format(host.name)],
         'ttl': ttl }
 
 def main():
