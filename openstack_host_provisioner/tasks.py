@@ -31,7 +31,8 @@ def start(__cloudify_id, region=None, **kwargs):
     # ACTIVE - already started
     # BUILD - is building and will start automatically after the build
 
-    if server.status in ('ACTIVE', 'BUILD'):
+    if server.status == 'ACTIVE' or server.status.startswith('BUILD'):
+        start_monitor(region)
         return
 
     # Rackspace: stop, start, pause, unpause, suspend - not implemented. Maybe other methods too.
@@ -39,10 +40,11 @@ def start(__cloudify_id, region=None, **kwargs):
     # SHUTOFF - powered off
     if server.status == 'SHUTOFF':
         server.reboot()
-    else:
-        raise ValueError("openstack_host_provisioner: Can not start() server in state {0}".format(server.status))
+        start_monitor(region)
+        return
 
-    start_monitor(region)
+    raise ValueError("openstack_host_provisioner: Can not start() server in state {0}".format(server.status))
+
 
 @task
 def stop(__cloudify_id, region=None, **kwargs):
