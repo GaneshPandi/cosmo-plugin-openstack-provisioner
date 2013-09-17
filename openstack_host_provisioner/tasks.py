@@ -17,16 +17,16 @@ def provision(__cloudify_id, region=None, image_id=None, flavor_id=None,
               key_name=None, **kwargs):
 
     nova = _init_client(region=region)
+    if _get_server_by_name(nova, __cloudify_id):
+        raise RuntimeError("Can not provision server with name '{0}' because server with such name already exists".format(__cloudify_id))
+    logger.debug("Server with name {0} does not exist, proceeding to call nova to create the server")
     nova.servers.create(name=__cloudify_id, image=image_id, flavor=flavor_id, key_name=key_name)
 
 @task
 def start(__cloudify_id, region=None, **kwargs):
 
     nova = _init_client(region=region)
-    try:
-        server = _get_server_by_name(nova, __cloudify_id)
-    except IndexError, e:
-        _raise_server_not_found(__cloudify_id, e)
+    server = _get_server_by_name_or_fail(nova, __cloudify_id)
 
     # ACTIVE - already started
     # BUILD - is building and will start automatically after the build
@@ -49,22 +49,15 @@ def start(__cloudify_id, region=None, **kwargs):
 @task
 def stop(__cloudify_id, region=None, **kwargs):
 
-    nova = _init_client(region=region)
-    try:
-        server = _get_server_by_name(nova, __cloudify_id)
-        server.stop()
-    except IndexError, e:
-        _raise_server_not_found(__cloudify_id, e)
+    server = _get_server_by_name_or_fail(nova, __cloudify_id)
+    server.stop()
 
 @task
 def terminate(__cloudify_id, region=None, **kwargs):
 
     nova = _init_client(region=region)
-    try:
-        server = _get_server_by_name(nova, __cloudify_id)
-        server.delete()
-    except IndexError, e:
-        _raise_server_not_found(__cloudify_id, e)
+    server = _get_server_by_name_or_fail(nova, __cloudify_id)
+    server.delete()
 
 @task
 def start_monitor(region = None):
@@ -89,7 +82,15 @@ def _init_client(region=None):
                          http_log_debug=True)
 
 def _get_server_by_name(nova, name):
-    return nova.servers.list(True, {'name': name}).pop()
+    matching_servers = nova.servers.list(True, {'name': name})
+    if len(matching_servers) == 0:
+        return None
+    if len(matching_servers) == 1:
+        return matching_servers[0]
+    raise RuntimeError("Lookup of server by name failed. There are {0} servers named '{1}'".format(len(matching_servers), name))
 
-def _raise_server_not_found(name, e):
-    raise ValueError("Could not find a server with name {0}. Details: {1}".format(name, str(e)))
+def _get_server_by_name_or_fail(nova, name):
+    server = _get_server_by_name(nova, name)
+    if server:
+        return server
+    raise ValueError("Lookup of server by name failed. Could not find a server with name {0}")
