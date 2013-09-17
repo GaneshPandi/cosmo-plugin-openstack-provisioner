@@ -1,3 +1,6 @@
+import copy
+import inspect
+import itertools
 import os
 import subprocess
 import sys
@@ -13,14 +16,51 @@ __author__ = 'elip'
 logger = get_task_logger(__name__)
 
 @task
-def provision(__cloudify_id, region=None, image_id=None, flavor_id=None,
-              key_name=None, **kwargs):
+def provision(__cloudify_id, nova, **kwargs):
 
-    nova = _init_client(region=region)
-    if _get_server_by_name(nova, __cloudify_id):
+    """
+    Creates a server. Exposes the parameters mentioned in
+    http://docs.openstack.org/developer/python-novaclient/api/novaclient.v1_1.servers.html#novaclient.v1_1.servers.ServerManager.create
+    Userdata:
+        In all cases, note that userdata should not be base64 encoded, novaclient expects it raw.
+        The 'userdata' argument under nova.instance can be one of the following:
+        1. A string
+        2. A hash with 'type: file' and 'path: ...'
+        2. A hash with 'type: url' and 'url: ...'
+
+    """
+
+    _fail_on_missing_required_parameters(nova, ('region', 'instance'), 'nova')
+
+    nova_instance = copy.deepcopy(nova['instance']) # For possible changes by _maybe_transform_userdata()
+    _maybe_transform_userdata(nova_instance)
+
+    _fail_on_missing_required_parameters(nova_instance, ('flavor', 'image', 'key_name'), 'nova.instance')
+
+    nova_client = _init_client(region=nova['region'])
+
+    params_names = inspect.getargspec(nova_client.servers.create).args[1:] # First parameter is 'self', skipping
+    params_default_values = inspect.getargspec(nova_client.servers.create).defaults
+    params = dict(itertools.izip(params_names, params_default_values))
+
+    del params['name'] # We pass this one outside **params so it must not be present here
+
+    # Fail on unsupported parameters
+    for k in nova_instance:
+        if k not in params:
+            raise ValueError("Parameter with name '{0}' must not be passed to openstack provisioner (under host's properties.nova.instance)".format(k))
+
+    for k in params:
+        if k in nova_instance:
+            params[k] = nova_instance[k]
+
+    if _get_server_by_name(nova_client, __cloudify_id):
         raise RuntimeError("Can not provision server with name '{0}' because server with such name already exists".format(__cloudify_id))
-    logger.debug("Server with name {0} does not exist, proceeding to call nova to create the server")
-    nova.servers.create(name=__cloudify_id, image=image_id, flavor=flavor_id, key_name=key_name)
+
+    logger.info("Asking Nova to create server. Parameters: {0}".format(str(params)))
+    logger.debug("Asking Nova to create server. All possible parameters are: {0})".format(','.join(params.keys())))
+
+    nova_client.servers.create(name=__cloudify_id, **params)
 
 @task
 def start(__cloudify_id, region=None, **kwargs):
@@ -94,3 +134,48 @@ def _get_server_by_name_or_fail(nova, name):
     if server:
         return server
     raise ValueError("Lookup of server by name failed. Could not find a server with name {0}")
+
+def _fail_on_missing_required_parameters(obj, required_parameters, hint_where):
+    for k in required_parameters:
+        if k not in obj:
+            raise ValueError("Required parameter '{0}' is missing (under host's properties.{1}). Required parameters are: {2}".format(k, hint_where, required_parameters))
+
+# *** userdata handlig - start ***
+userdata_handlers = {}
+def userdata_handler(type_):
+    def f(x):
+        userdata_handlers[type_] = x
+        return x
+    return f
+
+def _maybe_transform_userdata(nova_instance):
+    """Allows userdata to be read from a file, etc, not just be a string"""
+    if 'userdata' not in nova_instance:
+        return
+    if not isinstance(nova_instance['userdata'], dict):
+        return
+    ud = nova_instance['userdata']
+
+    _fail_on_missing_required_parameters(ud, ('type',), 'nova.instance.userdata')
+
+    if ud['type'] not in userdata_handlers:
+        raise ValueError("Invalid type '{0}' (under host's properties.nova.instance.userdata)".format(ud['type']))
+
+    nova_instance['userdata'] = userdata_handlers[ud['type']](ud)
+
+@userdata_handler('file')
+def ud_file(params):
+    """ Reads userdata from a file (absolute path) """
+    _fail_on_missing_required_parameters(params, ('path',), "nova.instance.userdata when using type 'file'")
+    logger.info("Using userdata in file {0}".format(params['path']))
+    with open(params['path'], 'r') as f:
+        return f.read()
+
+@userdata_handler('http')
+def ud_http(params):
+    """ Fetches userdata using HTTP """
+    import requests
+    _fail_on_missing_required_parameters(params, ('url',), "nova.instance.userdata when using type 'http'")
+    logger.info("Using userdata from URL {0}".format(params['url']))
+    return requests.get(params['url']).text
+# *** userdata handlig - end ***
