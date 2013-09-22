@@ -110,6 +110,7 @@ def parse_arguments():
     )
     parser.add_argument(
         '--pid_file',
+        default     = None,
         help        = 'Path to a filename that should contain the monitor process id'
     )
     return parser.parse_args()
