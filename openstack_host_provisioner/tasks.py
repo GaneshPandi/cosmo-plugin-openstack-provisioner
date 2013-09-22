@@ -68,14 +68,16 @@ def start(__cloudify_id, region=None, **kwargs):
     server = _get_server_by_name_or_fail(nova, __cloudify_id)
 
     # ACTIVE - already started
-    # BUILD - is building and will start automatically after the build
+    # BUILD - is building and will start automatically after the build.
+    # HP uses 'BUILD(x)' where x is a substatus therfore the startswith usage.
 
     if server.status == 'ACTIVE' or server.status.startswith('BUILD'):
         start_monitor(region)
         return
 
     # Rackspace: stop, start, pause, unpause, suspend - not implemented. Maybe other methods too.
-
+    #            Calling reboot() on an instance that is 'SHUTOFF' will start it.
+    
     # SHUTOFF - powered off
     if server.status == 'SHUTOFF':
         server.reboot()
