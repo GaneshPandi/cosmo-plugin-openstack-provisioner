@@ -119,7 +119,7 @@ def _init_client(region=None):
                          project_id=keystone_config.tenant_name,
                          auth_url=keystone_config.auth_url,
                          region_name=region,
-                         http_log_debug=True)
+                         http_log_debug=False)
 
 def _get_server_by_name(nova, name):
     matching_servers = nova.servers.list(True, {'name': name})
