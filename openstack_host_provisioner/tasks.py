@@ -106,7 +106,7 @@ def start_monitor(region = None):
 
     command = [
         sys.executable,
-        os.path.join(os.path.dirname(__file__), "monitor.py"))
+        os.path.join(os.path.dirname(__file__), "monitor.py")
     ]
     if region:
         command.append("--region_name={0}".format(region))
