@@ -103,7 +103,7 @@ def terminate(__cloudify_id, region=None, **kwargs):
 
 @task
 def start_monitor(region = None):
-    # WARNING: hard coded UNIX-specific pid file path
+
     command = [
         sys.executable,
         os.path.join(os.path.dirname(__file__), "monitor.py"))
