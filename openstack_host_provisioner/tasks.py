@@ -90,6 +90,7 @@ def start(__cloudify_id, region=None, **kwargs):
 @task
 def stop(__cloudify_id, region=None, **kwargs):
 
+    nova = _init_client(region=region)
     server = _get_server_by_name_or_fail(nova, __cloudify_id)
     server.stop()
 
@@ -105,8 +106,7 @@ def start_monitor(region = None):
     # WARNING: hard coded UNIX-specific pid file path
     command = [
         sys.executable,
-        os.path.join(os.path.dirname(__file__), "monitor.py"),
-        "--pid_file={0}".format(os.path.join("/var/run/cosmo-openstack-monitor.pid"))
+        os.path.join(os.path.dirname(__file__), "monitor.py"))
     ]
     if region:
         command.append("--region_name={0}".format(region))
