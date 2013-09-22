@@ -25,8 +25,7 @@ def provision(__cloudify_id, nova, **kwargs):
         In all cases, note that userdata should not be base64 encoded, novaclient expects it raw.
         The 'userdata' argument under nova.instance can be one of the following:
         1. A string
-        2. A hash with 'type: file' and 'path: ...'
-        2. A hash with 'type: url' and 'url: ...'
+        2. A hash with 'type: http' and 'url: ...'
 
     """
 
@@ -162,14 +161,6 @@ def _maybe_transform_userdata(nova_instance):
         raise ValueError("Invalid type '{0}' (under host's properties.nova.instance.userdata)".format(ud['type']))
 
     nova_instance['userdata'] = userdata_handlers[ud['type']](ud)
-
-@userdata_handler('file')
-def ud_file(params):
-    """ Reads userdata from a file (absolute path) """
-    _fail_on_missing_required_parameters(params, ('path',), "nova.instance.userdata when using type 'file'")
-    logger.info("Using userdata in file {0}".format(params['path']))
-    with open(params['path'], 'r') as f:
-        return f.read()
 
 @userdata_handler('http')
 def ud_http(params):
