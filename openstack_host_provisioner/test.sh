@@ -1,1 +1,2 @@
-nosetests --nocapture --nologcapture
+#!/bin/bash -e
+PYTHONPATH=. nosetests --nocapture --nologcapture

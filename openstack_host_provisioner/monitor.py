@@ -26,59 +26,74 @@ import bernhard
 import tasks
 from openstack_host_provisioner import tasks
 
-class OpenstackStatusMonitor(object):
+class Reporter(object):
 
     def __init__(self, args):
-        print args
-        self.timer = None
-        self.interval = args.monitor_interval
-        self.riemann = self.create_riemann_client(args.riemann_host,
+        self.riemann = self._create_client(args.riemann_host,
                                                   args.riemann_port,
                                                   args.riemann_transport)
-        self.nova = tasks._init_client(region=args.region_name)
-        self.register_signal_handlers()
-        self.monitor()
 
-    def monitor(self):
-        self.probe_and_publish()
-        self.timer = threading.Timer(self.interval, self.monitor)
-        self.timer.start()
-
-    def probe_and_publish(self):
-        ttl = self.interval * 3
-        try:
-            for event in _probe(self.nova, ttl):
-                # print event
-                self.riemann.send(event)
-        except Exception, e:
-            sys.stderr.write("Openstack monitor error: {0}\n".format(e))
-
-        
-
-    def create_riemann_client(self, host, port, transport):
+    def _create_client(self, host, port, transport):
         if transport == 'tcp':
             transport_cls = bernhard.TCPTransport
         else:
             transport_cls = bernhard.UDPTransport
         return bernhard.Client(host, port, transport_cls)
 
-    def register_signal_handlers(self):
-        def handle(signum, frame):
-            self.close()
-        signal.signal(signal.SIGTERM, handle)
-        signal.signal(signal.SIGINT, handle)
-        signal.signal(signal.SIGQUIT, handle)
+    def report(self, event):
+        self.riemann.send(event)
 
-    def close(self):
-        sys.stdout.write("Trying to shutdown monitor process")
+    def stop(self):
         self.riemann.disconnect()
-        if self.timer:
-            self.timer.cancel()
+
+class OpenstackStatusMonitor(object):
+
+    def __init__(self, reporter, args):
+        self.reporter = reporter
+        self.interval = args.monitor_interval
+        self.nova = tasks._init_client(region=args.region_name)
+        self.continue_running = True
+        self.ttl = self.interval * 3
+
+    def start(self):
+        while self.continue_running:
+            self.report_all_servers()
+            time.sleep(self.interval)
+
+    def report_all_servers(self):
+        servers = None
+        try:
+            servers = self.nova.servers.list()
+        except Exception, e:
+            sys.stderr.write("Openstack monitor error: {0}\n".format(e))
+
+        now = int(time.time())
+        for server in servers:
+            self.maybe_report_server(server, now)
+
+    def maybe_report_server(self, server, time):
+        if server.addresses.get('private', None):
+            self.report_server(server, time)
+
+    def report_server(self, server, time):
+        event = {
+            'host': server.addresses['private'][0]['addr'],
+            'service': 'openstack machine status',
+            'time': time,
+            'state': server.status,
+            'tags': ['name={0}'.format(server.name)],
+            'ttl': self.ttl }
+        self.reporter.report(event)
+
+    def stop(self):
+        sys.stdout.write("Trying to shutdown monitor process")
+        self.reporter.stop()
+        self.continue_running = False
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
-        description= 'Monitors a given Vagrantfile status and sends it to a riemann server'
+        description= "Monitors OpenStack hosts' statuses and sends it to a riemann server"
     )
     parser.add_argument(
         '--riemann_host',
@@ -120,30 +135,22 @@ def write_pid_file(pid_file):
     with open(pid_file, 'w') as f:
         f.write(str(os.getpid()))
 
-def _probe(nova, ttl):
-    now = int(time.time())
-    return [ _event(host, ttl, now) for host in nova.servers.list() if host.addresses.get('private',None) ]
-    
-
-def _event(host, ttl, now):
-    
-    return {
-        'host': host.addresses['private'][0]['addr'],
-        'service': 'openstack machine status',
-        'time': now,
-        'state': host.status,
-        'tags': ['name={0}'.format(host.name)],
-        'ttl': ttl }
-
 def main():
     logging.basicConfig()
     args = parse_arguments()
+    print("Args: {0}".format(args))
     if args.pid_file:
         write_pid_file(args.pid_file)
-    OpenstackStatusMonitor(args)
-    # to respond to signals promptly
-    signal.pause()
+    reporter = Reporter(args)
+    monitor = OpenstackStatusMonitor(reporter, args)
 
+    def handle(signum, frame):
+        monitor.stop()
+    signal.signal(signal.SIGTERM, handle)
+    signal.signal(signal.SIGINT, handle)
+    signal.signal(signal.SIGQUIT, handle)
+
+    monitor.start()
 
 if __name__ == '__main__':
     main()
