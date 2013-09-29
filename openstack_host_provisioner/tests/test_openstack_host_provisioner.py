@@ -53,6 +53,17 @@ class TestClass:
         self._wait_for_machine_state(name, u'ACTIVE')
 
     def test_provsion_terminate(self):
+        """
+        Test server termination by Nova.
+
+        This test should detect termination by a function similar to
+        self._wait_for_machine_state() but uses tasks._get_server_by_name()
+        instead.  The reason is that using such function would be very non
+        trivial.  OpenstackStatusMonitor currently reports one event per
+        existing server. Detecting non-existent server is therefore not a
+        trivial task.
+        """
+
         self.logger.info("Running " + str(inspect.stack()[0][3] + " : "))
         name = self.name_prefix + "test_provsion_terminate"
 
