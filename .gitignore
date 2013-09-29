@@ -1,5 +1,9 @@
 *.py[cod]
 
+MANIFEST
+
+CosmoVagrant.egg-info
+
 # C extensions
 *.so
 
@@ -33,3 +37,5 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+
+*.iml
