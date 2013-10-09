@@ -1,10 +1,10 @@
+import argparse
 import logging
 import random
 import string
 import sys
 import inspect
 import time
-from nose.tools import *
 from novaclient.v1_1 import client
 import time
 import nova_config
@@ -24,48 +24,39 @@ class TestClass:
         self.nova = tasks._init_client(region=nova_config.region_name)
         self.name_prefix = 'cosmo_test_openstack_host_provisioner_{0}_'.format(self._id_generator(3))
         self.logger.info("setup")
+        self.timeout = 120
 
     def tearDown(self):
         self.logger.info("tearDown called")
         servers_list = self.nova.servers.list()
         for server in servers_list:
-            try:
-                if (server.name.startswith(self.name_prefix)):
-                    self.logger.info("Deleting server with name " + server.name)
+            if (server.name.startswith(self.name_prefix)):
+                self.logger.info("Deleting server with name " + server.name)
+                try:
                     server.delete()
-                else:
-                    self.logger.info("NOT deleting server with name " + server.name)
+                except Exception:
+                    self.logger.warning("Failed to delete server with name " + server.name)
+            else:
+                self.logger.info("NOT deleting server with name " + server.name)
 
-            except Exception:
-                self.logger.warning("Failed to delete server with name " + server.name)
-
-    def test_provision(self):
-        self.logger.info("Running " + str(inspect.stack()[0][3] + " : "))
-        name = self.name_prefix + "test_provision"
-
+    def _provision(self, name):
+        # Only used once but will probably be reused in future
         self.logger.info("Provisioning server with name " + name)
-        tasks.provision(region=nova_config.region_name,
-                        __cloudify_id=name,
-                        image_id=nova_config.image_id,
-                        flavor_id=nova_config.flavor_id)
-
-        server = tasks._get_server_by_name(self.nova, name)
-        self.logger.info("Successfully provisioned server : " + str(server))
-        assert server is not None, "Could not find any servers with name{0} after provisioning".format(name)
-        assert_equals(server.name, name, "Server lookup was incorrect")
-        assert_equals(str(server.image['id']), str(nova_config.image_id))
-        assert_equals(str(server.flavor['id']), str(nova_config.flavor_id))
+        tasks.provision(name, nova = {
+            'region': nova_config.region_name,
+            'instance': {
+                'image': nova_config.image_id,
+                'flavor': nova_config.flavor_id,
+                'key_name': nova_config.key_name,
+            }
+        })
         self._wait_for_machine_state(name, u'ACTIVE')
 
-    def test_terminate(self):
+    def test_provsion_terminate(self):
         self.logger.info("Running " + str(inspect.stack()[0][3] + " : "))
-        name = self.name_prefix + "test_provision"
+        name = self.name_prefix + "test_provsion_terminate"
 
-        self.logger.info("Provisioning server with name " + name)
-        tasks.provision(region=nova_config.region_name,
-                        __cloudify_id=name,
-                        image_id=nova_config.image_id,
-                        flavor_id=nova_config.flavor_id)
+        self._provision(name)
 
         self.logger.info("Terminating server with name " + name)
         tasks.terminate(__cloudify_id=name, region=nova_config.region_name)
@@ -86,18 +77,27 @@ class TestClass:
         return ''.join(random.choice(chars) for x in range(size))
 
     def _wait_for_machine_state(self, name, expected_state):        
-        while True:
-            actual_state = self._get_machine_state(name)
-            if (actual_state == expected_state):
-                break
-            self.logger.info('waiting for machine {0} expected state:{1} current state:{2}'.format(name,expected_state, actual_state))
-            time.sleep(10)
 
-        self.logger.info('machine {0} reached expected machine state {1}'.format(name,expected_state))
+        deadline = time.time() + self.timeout
+        host_name_tag = 'name={0}'.format(name)
+        m = None
+        logger = self.logger
 
-    def _get_machine_state(self, name):
-        ttl = 0
-        events = monitor._probe(self.nova, ttl)
-        tags='name={0}'.format(name)
-        return next((e['state'] for e in events if e['tags']==tags), None)
-        
+        class ReporterWaitingForMachineStatus():
+            def report(self, e):
+                # FIXME: timeout will not work if there are no machines to report
+                if time.time() > deadline:
+                    raise RuntimeError("Timed out waiting for machine {0} to achieve status {1}")
+                if host_name_tag in e['tags']:
+                    if e['state'] == expected_state:
+                        logger.info('machine {0} reached expected machine state {1}'.format(name,expected_state))
+                        m.stop()
+                    else:
+                        logger.info('waiting for machine {0} expected state:{1} current state:{2}'.format(name, expected_state, e['state']))
+            def stop(self):
+                pass
+
+        r = ReporterWaitingForMachineStatus()
+        args = argparse.Namespace(monitor_interval=3, region_name=nova_config.region_name)
+        m = monitor.OpenstackStatusMonitor(r, args)
+        m.start()
