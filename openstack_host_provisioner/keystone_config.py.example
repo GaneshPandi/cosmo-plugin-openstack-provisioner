@@ -1,0 +1,10 @@
+#python-novaclient uses only "passwordCredentials" and not "apiAccessKeyCredentials"
+#so use the username password for the hpcloud portal, not the access keys
+username=''
+password=''
+#The keystone auth v2.0 url
+auth_url=''
+
+#tenant name (also called project_id) in hp it is the project_id (same as username), in Rackspace it is the account number
+tenant_name=''
+
