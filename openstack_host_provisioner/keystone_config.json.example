@@ -1,0 +1,7 @@
+{
+    username: "",
+    password: "",
+    auth_url: "",
+    tenant_name: ""
+}
+

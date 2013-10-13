@@ -4,10 +4,10 @@ import itertools
 import os
 import subprocess
 import sys
+import json
 
 from novaclient.v1_1 import client
 from celery import task
-import keystone_config
 
 from celery.utils.log import get_task_logger
 
@@ -115,10 +115,13 @@ def start_monitor(region = None):
     subprocess.Popen(command)
 
 def _init_client(region=None):
-    return client.Client(username=keystone_config.username,
-                         api_key=keystone_config.password,
-                         project_id=keystone_config.tenant_name,
-                         auth_url=keystone_config.auth_url,
+    config_path = os.getenv('KEYSTONE_CONFIG_PATH', os.path.expanduser('~/keystone_config.json'))
+    with open(config_path, 'r') as f:
+        keystone_config = json.loads(f.read())
+    return client.Client(username=keystone_config['username'],
+                         api_key=keystone_config['password'],
+                         project_id=keystone_config['tenant_name'],
+                         auth_url=keystone_config['auth_url'],
                          region_name=region,
                          http_log_debug=False)
 
