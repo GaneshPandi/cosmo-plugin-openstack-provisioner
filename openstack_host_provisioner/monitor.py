@@ -76,11 +76,15 @@ class OpenstackStatusMonitor(object):
             self.report_server(server, time)
 
     def report_server(self, server, time):
+        if server.status == 'ACTIVE':
+            state = 'running'
+        else:
+            state = 'not running'
         event = {
             'host': server.addresses['private'][0]['addr'],
             'service': 'openstack machine status',
             'time': time,
-            'state': server.status,
+            'state': state,
             'tags': ['name={0}'.format(server.name)],
             'ttl': self.ttl
         }
