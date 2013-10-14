@@ -47,7 +47,7 @@ class TestClass:
                 'key_name': nova_config.key_name,
             }
         })
-        self._wait_for_machine_state(name, u'ACTIVE')
+        self._wait_for_machine_state(name, u'running')
 
     def test_provision_terminate(self):
         """
