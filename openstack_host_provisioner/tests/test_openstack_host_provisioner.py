@@ -2,10 +2,7 @@ import argparse
 import logging
 import random
 import string
-import sys
 import inspect
-import time
-from novaclient.v1_1 import client
 import time
 import nova_config
 from openstack_host_provisioner import tasks
@@ -21,16 +18,16 @@ class TestClass:
         self.logger = logging.getLogger("test_openstack_host_provisioner")
         self.logger.level = logging.DEBUG
         self.logger.info("setUp called")
-        self.nova = tasks._init_client(region=nova_config.region_name)
+        self.nova_client = tasks._init_client(region=nova_config.region_name)
         self.name_prefix = 'cosmo_test_openstack_host_provisioner_{0}_'.format(self._id_generator(3))
         self.logger.info("setup")
         self.timeout = 120
 
     def tearDown(self):
         self.logger.info("tearDown called")
-        servers_list = self.nova.servers.list()
+        servers_list = self.nova_client.servers.list()
         for server in servers_list:
-            if (server.name.startswith(self.name_prefix)):
+            if server.name.startswith(self.name_prefix):
                 self.logger.info("Deleting server with name " + server.name)
                 try:
                     server.delete()
@@ -42,7 +39,7 @@ class TestClass:
     def _provision(self, name):
         # Only used once but will probably be reused in future
         self.logger.info("Provisioning server with name " + name)
-        tasks.provision(name, nova = {
+        tasks.provision(__cloudify_id=name, nova_config={
             'region': nova_config.region_name,
             'instance': {
                 'image': nova_config.image_id,
@@ -52,7 +49,7 @@ class TestClass:
         })
         self._wait_for_machine_state(name, u'ACTIVE')
 
-    def test_provsion_terminate(self):
+    def test_provision_terminate(self):
         """
         Test server termination by Nova.
 
@@ -65,18 +62,20 @@ class TestClass:
         """
 
         self.logger.info("Running " + str(inspect.stack()[0][3] + " : "))
-        name = self.name_prefix + "test_provsion_terminate"
+        name = self.name_prefix + "test_provision_terminate"
 
         self._provision(name)
 
         self.logger.info("Terminating server with name " + name)
-        tasks.terminate(__cloudify_id=name, region=nova_config.region_name)
+        tasks.terminate(__cloudify_id=name, nova_config={
+            'region': nova_config.region_name
+        })
 
         expire = time.time() + 10
         while time.time() < expire:
             self.logger.info("Querying server by name " + name)
             try:
-                tasks._get_server_by_name(nova, name)
+                tasks._get_server_by_name(self.nova_client, name)
                 self.logger.info("Server has not yet terminated. sleeping...")
                 time.sleep(0.5)
             except Exception:
@@ -105,6 +104,7 @@ class TestClass:
                         m.stop()
                     else:
                         logger.info('waiting for machine {0} expected state:{1} current state:{2}'.format(name, expected_state, e['state']))
+
             def stop(self):
                 pass
 
