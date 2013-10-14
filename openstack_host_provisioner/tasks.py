@@ -75,7 +75,7 @@ def start(__cloudify_id, nova_config, **kwargs):
     # HP uses 'BUILD(x)' where x is a substatus therfore the startswith usage.
 
     if server.status == 'ACTIVE' or server.status.startswith('BUILD'):
-        start_monitor(region)
+        start_monitor(nova_config)
         return
 
     # Rackspace: stop, start, pause, unpause, suspend - not implemented. Maybe other methods too.
@@ -84,7 +84,7 @@ def start(__cloudify_id, nova_config, **kwargs):
     # SHUTOFF - powered off
     if server.status == 'SHUTOFF':
         server.reboot()
-        start_monitor(region)
+        start_monitor(nova_config)
         return
 
     raise ValueError("openstack_host_provisioner: Can not start() server in state {0}".format(server.status))
