@@ -78,7 +78,7 @@ class TestClass:
                 tasks._get_server_by_name(self.nova_client, name)
                 self.logger.info("Server has not yet terminated. sleeping...")
                 time.sleep(0.5)
-            except Exception:
+            except Exception:  # TODO: refine exception
                 self.logger.info("Server has terminated. All good")
                 return
         raise Exception("Server with name " + name + " was not terminated after 10 seconds")
