@@ -15,7 +15,6 @@
 # *******************************************************************************/
 
 import argparse
-import threading
 import time
 import sys
 import signal
@@ -24,14 +23,14 @@ import logging
 
 import bernhard
 import tasks
-from openstack_host_provisioner import tasks
+
 
 class Reporter(object):
 
     def __init__(self, args):
         self.riemann = self._create_client(args.riemann_host,
-                                                  args.riemann_port,
-                                                  args.riemann_transport)
+                                           args.riemann_port,
+                                           args.riemann_transport)
 
     def _create_client(self, host, port, transport):
         if transport == 'tcp':
@@ -45,6 +44,7 @@ class Reporter(object):
 
     def stop(self):
         self.riemann.disconnect()
+
 
 class OpenstackStatusMonitor(object):
 
@@ -76,13 +76,18 @@ class OpenstackStatusMonitor(object):
             self.report_server(server, time)
 
     def report_server(self, server, time):
+        if server.status == 'ACTIVE':
+            state = 'running'
+        else:
+            state = 'not running'
         event = {
             'host': server.addresses['private'][0]['addr'],
             'service': 'openstack machine status',
             'time': time,
-            'state': server.status,
+            'state': state,
             'tags': ['name={0}'.format(server.name)],
-            'ttl': self.ttl }
+            'ttl': self.ttl
+        }
         self.reporter.report(event)
 
     def stop(self):
@@ -134,6 +139,7 @@ def parse_arguments():
 def write_pid_file(pid_file):
     with open(pid_file, 'w') as f:
         f.write(str(os.getpid()))
+
 
 def main():
     logging.basicConfig()
