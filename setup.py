@@ -12,8 +12,7 @@ setuptools.setup(
     description='Plugin for provisioning openstack nova hosts',
     install_requires=[
         "kombu==3.0",
-        "bernhard",
-        "celery"
+        "bernhard"
     ]
 )
 
