@@ -11,10 +11,10 @@ setuptools.setup(
     license='LICENSE',
     description='Plugin for provisioning openstack nova hosts',
     install_requires=[
-        "python-novaclient",
+        "kombu==3.0",
         "bernhard",
         "celery",
-    ],
-    tests_require=['nose']
+        "python-novaclient"
+    ]
 )
 
