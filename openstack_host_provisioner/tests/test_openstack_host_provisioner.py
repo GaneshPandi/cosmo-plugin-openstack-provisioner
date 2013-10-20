@@ -4,6 +4,7 @@ import random
 import string
 import inspect
 import time
+from unittest import TestCase
 import nova_config
 from openstack_host_provisioner import tasks
 from openstack_host_provisioner import monitor
@@ -11,7 +12,7 @@ from openstack_host_provisioner import monitor
 __author__ = 'elip'
 
 
-class TestClass:
+class OpenstackProvisionerTestCase(TestCase):
 
     def setUp(self):
         logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -31,7 +32,7 @@ class TestClass:
                 self.logger.info("Deleting server with name " + server.name)
                 try:
                     server.delete()
-                except Exception:
+                except BaseException:
                     self.logger.warning("Failed to delete server with name " + server.name)
             else:
                 self.logger.info("NOT deleting server with name " + server.name)
@@ -39,15 +40,17 @@ class TestClass:
     def _provision(self, name):
         # Only used once but will probably be reused in future
         self.logger.info("Provisioning server with name " + name)
-        tasks.provision(__cloudify_id=name, nova_config={
+        __cloudify_id = "{0}_cloudify_id".format(name)
+        tasks.provision(__cloudify_id=__cloudify_id, nova_config={
             'region': nova_config.region_name,
             'instance': {
+                'name': name,
                 'image': nova_config.image_id,
                 'flavor': nova_config.flavor_id,
                 'key_name': nova_config.key_name,
             }
         })
-        self._wait_for_machine_state(name, u'running')
+        self._wait_for_machine_state(__cloudify_id, u'running')
 
     def test_provision_terminate(self):
         """
@@ -67,43 +70,50 @@ class TestClass:
         self._provision(name)
 
         self.logger.info("Terminating server with name " + name)
-        tasks.terminate(__cloudify_id=name, nova_config={
-            'region': nova_config.region_name
+        tasks.terminate(nova_config={
+            'region': nova_config.region_name,
+            'instance': {
+                'name': name
+            }
         })
 
-        expire = time.time() + 10
+        timeout = 10
+        expire = time.time() + timeout
         while time.time() < expire:
             self.logger.info("Querying server by name " + name)
-            try:
-                tasks._get_server_by_name(self.nova_client, name)
-                self.logger.info("Server has not yet terminated. sleeping...")
-                time.sleep(0.5)
-            except Exception:  # TODO: refine exception
+            by_name = tasks._get_server_by_name(self.nova_client, name)
+            if not by_name:
                 self.logger.info("Server has terminated. All good")
                 return
-        raise Exception("Server with name " + name + " was not terminated after 10 seconds")
+            self.logger.info("Server has not yet terminated. it is in state {0} sleeping...".format(by_name.status))
+            time.sleep(0.5)
+        raise Exception("Server with name " + name + " was not terminated after {0} seconds".format(timeout))
 
     def _id_generator(self, size=6, chars=string.ascii_uppercase + string.digits):
         return ''.join(random.choice(chars) for x in range(size))
 
-    def _wait_for_machine_state(self, name, expected_state):        
+    def _wait_for_machine_state(self, cloudify_id, expected_state):
 
         deadline = time.time() + self.timeout
-        host_name_tag = 'name={0}'.format(name)
+        cloudify_id_tag = 'name={0}'.format(cloudify_id)
         m = None
         logger = self.logger
 
         class ReporterWaitingForMachineStatus():
+
             def report(self, e):
+
                 # FIXME: timeout will not work if there are no machines to report
                 if time.time() > deadline:
-                    raise RuntimeError("Timed out waiting for machine {0} to achieve status {1}")
-                if host_name_tag in e['tags']:
+                    raise RuntimeError("Timed out waiting for machine {0} to achieve status {1}"
+                                       .format(cloudify_id, expected_state))
+                if cloudify_id_tag in e['tags']:
                     if e['state'] == expected_state:
-                        logger.info('machine {0} reached expected machine state {1}'.format(name,expected_state))
+                        logger.info('machine {0} reached expected machine state {1}'.format(cloudify_id, expected_state))
                         m.stop()
                     else:
-                        logger.info('waiting for machine {0} expected state:{1} current state:{2}'.format(name, expected_state, e['state']))
+                        logger.info('waiting for machine {0} expected state:{1} current state:{2}'
+                                    .format(cloudify_id, expected_state, e['state']))
 
             def stop(self):
                 pass
