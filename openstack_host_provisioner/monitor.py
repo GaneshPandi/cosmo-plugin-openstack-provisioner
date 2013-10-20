@@ -91,7 +91,7 @@ class OpenstackStatusMonitor(object):
             'service': 'openstack machine status',
             'time': time,
             'state': state,
-            'tags': ['cloudify_id={0}'.format(self.get_cloudify_id_from_server(server))],
+            'tags': ['name={0}'.format(self.get_cloudify_id_from_server(server))],
             'ttl': self.ttl
         }
         self.reporter.report(event)

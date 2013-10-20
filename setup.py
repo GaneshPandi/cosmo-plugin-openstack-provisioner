@@ -12,7 +12,8 @@ setuptools.setup(
     description='Plugin for provisioning openstack nova hosts',
     install_requires=[
         "bernhard",
-        "celery"
+        "celery",
+        "python-novaclient"
     ]
 )
 

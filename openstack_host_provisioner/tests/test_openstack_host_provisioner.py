@@ -95,7 +95,7 @@ class OpenstackProvisionerTestCase(TestCase):
     def _wait_for_machine_state(self, cloudify_id, expected_state):
 
         deadline = time.time() + self.timeout
-        cloudify_id_tag = 'cloudify_id={0}'.format(cloudify_id)
+        cloudify_id_tag = 'name={0}'.format(cloudify_id)
         m = None
         logger = self.logger
 
