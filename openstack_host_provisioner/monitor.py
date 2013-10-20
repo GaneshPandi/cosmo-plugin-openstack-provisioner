@@ -71,6 +71,12 @@ class OpenstackStatusMonitor(object):
         for server in servers:
             self.maybe_report_server(server, now)
 
+    def get_cloudify_id_from_server(self, server):
+        try:
+            return server.metadata['cloudify_id']
+        except KeyError:
+            pass
+
     def maybe_report_server(self, server, time):
         if server.addresses.get('private', None):
             self.report_server(server, time)
@@ -85,7 +91,7 @@ class OpenstackStatusMonitor(object):
             'service': 'openstack machine status',
             'time': time,
             'state': state,
-            'tags': ['name={0}'.format(server.name)],
+            'tags': ['cloudify_id={0}'.format(self.get_cloudify_id_from_server(server))],
             'ttl': self.ttl
         }
         self.reporter.report(event)
@@ -98,40 +104,40 @@ class OpenstackStatusMonitor(object):
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
-        description= "Monitors OpenStack hosts' statuses and sends it to a riemann server"
+        description="Monitors OpenStack hosts' statuses and sends it to a riemann server"
     )
     parser.add_argument(
         '--riemann_host',
-        help        = 'The riemann host',
-        default     = 'localhost'
+        help='The riemann host',
+        default='localhost'
     )
     parser.add_argument(
         '--riemann_port',
-        help        = 'The riemann port',
-        default     = 5555,
-        type        = int
+        help='The riemann port',
+        default=5555,
+        type=int
     )
     parser.add_argument(
         '--riemann_transport',
-        help        = 'The riemann transport',
-        default     = 'tcp',
-        choices     = ['tcp', 'udp']
+        help='The riemann transport',
+        default='tcp',
+        choices=['tcp', 'udp']
     )
     parser.add_argument(
         '--monitor_interval',
-        help        = 'The interval in seconds to wait between each probe',
-        default     = 5,
-        type        = int
+        help='The interval in seconds to wait between each probe',
+        default=5,
+        type=int
     )
     parser.add_argument(
         '--region_name',
-        help        = 'The openstack region name',
-        default     = None
+        help='The openstack region name',
+        default=None
     )
     parser.add_argument(
         '--pid_file',
-        default     = None,
-        help        = 'Path to a filename that should contain the monitor process id'
+        default=None,
+        help='Path to a filename that should contain the monitor process id'
     )
     return parser.parse_args()
 
@@ -152,11 +158,13 @@ def main():
 
     def handle(signum, frame):
         monitor.stop()
+
     signal.signal(signal.SIGTERM, handle)
     signal.signal(signal.SIGINT, handle)
     signal.signal(signal.SIGQUIT, handle)
 
     monitor.start()
+
 
 if __name__ == '__main__':
     main()
