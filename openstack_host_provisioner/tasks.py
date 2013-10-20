@@ -32,43 +32,48 @@ def provision(__cloudify_id, nova_config, **kwargs):
 
     _fail_on_missing_required_parameters(nova_config, ('region', 'instance'), 'nova_config')
 
-    nova_instance = copy.deepcopy(nova_config['instance']) # For possible changes by _maybe_transform_userdata()
+    nova_instance = copy.deepcopy(nova_config['instance'])  # For possible changes by _maybe_transform_userdata()
     _maybe_transform_userdata(nova_instance)
 
-    _fail_on_missing_required_parameters(nova_instance, ('flavor', 'image', 'key_name'), 'nova_config.instance')
+    _fail_on_missing_required_parameters(nova_instance, ('name', 'flavor', 'image', 'key_name'),
+                                         'nova_config.instance')
 
     nova_client = _init_client(region=nova_config['region'])
 
-    params_names = inspect.getargspec(nova_client.servers.create).args[1:] # First parameter is 'self', skipping
+    params_names = inspect.getargspec(nova_client.servers.create).args[1:]  # First parameter is 'self', skipping
     params_default_values = inspect.getargspec(nova_client.servers.create).defaults
     params = dict(itertools.izip(params_names, params_default_values))
-
-    del params['name']  # We pass this one outside **params so it must not be present here
 
     # Fail on unsupported parameters
     for k in nova_instance:
         if k not in params:
-            raise ValueError("Parameter with name '{0}' must not be passed to openstack provisioner (under host's properties.nova.instance)".format(k))
+            raise ValueError("Parameter with name '{0}' must not be passed to openstack provisioner "
+                             "(under host's properties.nova.instance)".format(k))
 
     for k in params:
         if k in nova_instance:
             params[k] = nova_instance[k]
 
-    if _get_server_by_name(nova_client, __cloudify_id):
-        raise RuntimeError("Can not provision server with name '{0}' because server with such name already exists".format(__cloudify_id))
+    if _get_server_by_name(nova_client, nova_config['instance']['name']):
+        raise RuntimeError("Can not provision server with name '{0}' because server with such name already exists"
+                           .format(__cloudify_id))
+
+    if not params['meta']:
+        params['meta'] = dict({})
+    params['meta']['cloudify_id'] = __cloudify_id
 
     logger.info("Asking Nova to create server. Parameters: {0}".format(str(params)))
     logger.debug("Asking Nova to create server. All possible parameters are: {0})".format(','.join(params.keys())))
 
-    nova_client.servers.create(name=__cloudify_id, **params)
+    nova_client.servers.create(**params)
 
 
 @task
-def start(__cloudify_id, nova_config, **kwargs):
+def start(nova_config, **kwargs):
     _fail_on_missing_required_parameters(nova_config, ('region',), 'nova_config')
     region = nova_config['region']
     nova_client = _init_client(region=region)
-    server = _get_server_by_name_or_fail(nova_client, __cloudify_id)
+    server = _get_server_by_name_or_fail(nova_client, nova_config['instance']['name'])
 
     # ACTIVE - already started
     # BUILD - is building and will start automatically after the build.
@@ -91,20 +96,20 @@ def start(__cloudify_id, nova_config, **kwargs):
 
 
 @task
-def stop(__cloudify_id, nova_config, **kwargs):
+def stop(nova_config, **kwargs):
     _fail_on_missing_required_parameters(nova_config, ('region',), 'nova_config')
     region = nova_config['region']
     nova_client = _init_client(region=region)
-    server = _get_server_by_name_or_fail(nova_client, __cloudify_id)
+    server = _get_server_by_name_or_fail(nova_client, nova_config['instance']['name'])
     server.stop()
 
 
 @task
-def terminate(__cloudify_id, nova_config, **kwargs):
+def terminate(nova_config, **kwargs):
     _fail_on_missing_required_parameters(nova_config, ('region',), 'nova_config')
     region = nova_config['region']
     nova_client = _init_client(region=region)
-    server = _get_server_by_name_or_fail(nova_client, __cloudify_id)
+    server = _get_server_by_name_or_fail(nova_client, nova_config['instance']['name'])
     server.delete()
 
 
@@ -141,7 +146,8 @@ def _get_server_by_name(nova_client, name):
         return None
     if len(matching_servers) == 1:
         return matching_servers[0]
-    raise RuntimeError("Lookup of server by name failed. There are {0} servers named '{1}'".format(len(matching_servers), name))
+    raise RuntimeError("Lookup of server by name failed. There are {0} servers named '{1}'"
+                       .format(len(matching_servers), name))
 
 
 def _get_server_by_name_or_fail(nova_client, name):
@@ -154,11 +160,14 @@ def _get_server_by_name_or_fail(nova_client, name):
 def _fail_on_missing_required_parameters(obj, required_parameters, hint_where):
     for k in required_parameters:
         if k not in obj:
-            raise ValueError("Required parameter '{0}' is missing (under host's properties.{1}). Required parameters are: {2}".format(k, hint_where, required_parameters))
+            raise ValueError("Required parameter '{0}' is missing (under host's properties.{1}). "
+                             "Required parameters are: {2}".format(k, hint_where, required_parameters))
 
 
 # *** userdata handlig - start ***
 userdata_handlers = {}
+
+
 def userdata_handler(type_):
     def f(x):
         userdata_handlers[type_] = x
