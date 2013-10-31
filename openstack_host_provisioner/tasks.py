@@ -75,12 +75,6 @@ def start(__cloudify_id, nova_config, **kwargs):
     nova_client = _init_client(region=region)
     server = _get_server_by_name_or_fail(nova_client, nova_config['instance']['name'])
 
-    if 'private' in server.addresses:
-        server_ips = server.addresses['private']
-        if len(server_ips) >= 2:
-            logger.info("Starting machine [node_id={0}, private_ip={1}, public_ip={2}]".format(
-                __cloudify_id, server_ips[0]['addr'], server_ips[1]['addr']))
-
     # ACTIVE - already started
     # BUILD - is building and will start automatically after the build.
     # HP uses 'BUILD(x)' where x is a substatus therfore the startswith usage.
