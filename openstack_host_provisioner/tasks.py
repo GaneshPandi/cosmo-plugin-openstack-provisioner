@@ -78,8 +78,8 @@ def start(__cloudify_id, nova_config, **kwargs):
     if 'private' in server.addresses:
         server_ips = server.addresses['private']
         if len(server_ips) >= 2:
-            logger.info("Starting machine [node_id={0}, private_ip={1}, public_ip={2}]",
-                __cloudify_id, server_ips[0]['addr'], server_ips[1]['addr'])
+            logger.info("Starting machine [node_id={0}, private_ip={1}, public_ip={2}]".format(
+                __cloudify_id, server_ips[0]['addr'], server_ips[1]['addr']))
 
     # ACTIVE - already started
     # BUILD - is building and will start automatically after the build.
