@@ -4,7 +4,7 @@ import setuptools
 setuptools.setup(
     zip_safe=True,
     name='cosmo-plugin-openstack-provisioner',
-    version='0.1.0',
+    version='0.2',
     author='elip',
     author_email='itaif@gigaspaces.com',
     packages=['openstack_host_provisioner'],
