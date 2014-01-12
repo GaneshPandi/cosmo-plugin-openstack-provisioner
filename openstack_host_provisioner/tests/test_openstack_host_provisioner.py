@@ -15,12 +15,14 @@ __author__ = 'elip'
 class OpenstackProvisionerTestCase(TestCase):
 
     def setUp(self):
-        logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        logging.basicConfig(
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         self.logger = logging.getLogger("test_openstack_host_provisioner")
         self.logger.level = logging.DEBUG
         self.logger.info("setUp called")
         self.nova_client = tasks._init_client(region=nova_config.region_name)
-        self.name_prefix = 'cosmo_test_openstack_host_provisioner_{0}_'.format(self._id_generator(3))
+        self.name_prefix = 'cosmo_test_openstack_host_provisioner_{0}_'\
+            .format(self._id_generator(3))
         self.logger.info("setup")
         self.timeout = 120
 
@@ -33,9 +35,11 @@ class OpenstackProvisionerTestCase(TestCase):
                 try:
                     server.delete()
                 except BaseException:
-                    self.logger.warning("Failed to delete server with name " + server.name)
+                    self.logger.warning("Failed to delete server with name "
+                                        + server.name)
             else:
-                self.logger.info("NOT deleting server with name " + server.name)
+                self.logger.info("NOT deleting server with name "
+                                 + server.name)
 
     def _provision(self, name):
         # Only used once but will probably be reused in future
@@ -85,11 +89,15 @@ class OpenstackProvisionerTestCase(TestCase):
             if not by_name:
                 self.logger.info("Server has terminated. All good")
                 return
-            self.logger.info("Server has not yet terminated. it is in state {0} sleeping...".format(by_name.status))
+            self.logger.info("Server has not yet terminated. it is in state"
+                             " {0} sleeping...".format(by_name.status))
             time.sleep(0.5)
-        raise Exception("Server with name " + name + " was not terminated after {0} seconds".format(timeout))
+        raise Exception("Server with name " + name + " was not terminated "
+                                                     "after {0} seconds"
+                                                     .format(timeout))
 
-    def _id_generator(self, size=6, chars=string.ascii_uppercase + string.digits):
+    def _id_generator(self, size=6,
+                      chars=string.ascii_uppercase + string.digits):
         return ''.join(random.choice(chars) for x in range(size))
 
     def _wait_for_machine_state(self, cloudify_id, expected_state):
@@ -103,22 +111,31 @@ class OpenstackProvisionerTestCase(TestCase):
 
             def report(self, e):
 
-                # FIXME: timeout will not work if there are no machines to report
+                # FIXME: timeout will not work if there are no
+                # FIXME (cont): machines to report
                 if time.time() > deadline:
-                    raise RuntimeError("Timed out waiting for machine {0} to achieve status {1}"
+                    raise RuntimeError("Timed out waiting for machine {0} "
+                                       "to achieve status {1}"
                                        .format(cloudify_id, expected_state))
                 if cloudify_id_tag in e['tags']:
                     if e['state'] == expected_state:
-                        logger.info('machine {0} reached expected machine state {1}'.format(cloudify_id, expected_state))
+                        logger.info('machine {0} reached expected machine'
+                                    ' state {1}'.format(cloudify_id,
+                                                        expected_state))
                         m.stop()
                     else:
-                        logger.info('waiting for machine {0} expected state:{1} current state:{2}'
-                                    .format(cloudify_id, expected_state, e['state']))
+                        logger.info(
+                            'waiting for machine {0} expected state:{1} '
+                            'current state:{2}'.format(
+                                cloudify_id,
+                                expected_state,
+                                e['state']))
 
             def stop(self):
                 pass
 
         r = ReporterWaitingForMachineStatus()
-        args = argparse.Namespace(monitor_interval=3, region_name=nova_config.region_name)
+        args = argparse.Namespace(monitor_interval=3,
+                                  region_name=nova_config.region_name)
         m = monitor.OpenstackStatusMonitor(r, args)
         m.start()
