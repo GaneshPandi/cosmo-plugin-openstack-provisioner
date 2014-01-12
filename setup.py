@@ -16,4 +16,3 @@ setuptools.setup(
         "python-novaclient"
     ]
 )
-

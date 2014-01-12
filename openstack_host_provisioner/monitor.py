@@ -1,18 +1,17 @@
-#/*******************************************************************************
-# * Copyright (c) 2013 GigaSpaces Technologies Ltd. All rights reserved
-# *
-# * Licensed under the Apache License, Version 2.0 (the "License");
-# * you may not use this file except in compliance with the License.
-# * You may obtain a copy of the License at
-# *
-# *       http://www.apache.org/licenses/LICENSE.txt-2.0
-# *
-# * Unless required by applicable law or agreed to in writing, software
-# * distributed under the License is distributed on an "AS IS" BASIS,
+########
+# Copyright (c) 2013 GigaSpaces Technologies Ltd. All rights reserved
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
 #    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
-# *******************************************************************************/
 
 import argparse
 import time
@@ -91,7 +90,8 @@ class OpenstackStatusMonitor(object):
             'service': 'openstack machine status',
             'time': time,
             'state': state,
-            'tags': ['name={0}'.format(self.get_cloudify_id_from_server(server))],
+            'tags': ['name={0}'.format(
+                self.get_cloudify_id_from_server(server))],
             'ttl': self.ttl
         }
         self.reporter.report(event)
@@ -104,7 +104,8 @@ class OpenstackStatusMonitor(object):
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
-        description="Monitors OpenStack hosts' statuses and sends it to a riemann server"
+        description="Monitors OpenStack hosts' statuses and sends it "
+                    "to a riemann server"
     )
     parser.add_argument(
         '--riemann_host',
@@ -168,4 +169,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

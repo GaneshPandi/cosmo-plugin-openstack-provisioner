@@ -5,10 +5,12 @@ python:
 install:
 
     # command to install dependencies
-    - python setup.py install
+    - sudo pip install .
+    - sudo pip install flake8
 
 script:
 
+    - flake8 .
     # command to run tests. they don't currently run on travis since we dont have an openstack environment available
     # from there
-     - echo no tests
+    - echo no tests
