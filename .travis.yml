@@ -12,4 +12,4 @@ script:
     - flake8 .
     # command to run tests. they don't currently run on travis since we dont have an openstack environment available
     # from there
-     - echo no tests
+    - echo no tests
