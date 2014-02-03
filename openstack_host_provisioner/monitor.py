@@ -85,13 +85,14 @@ class OpenstackStatusMonitor(object):
             state = 'running'
         else:
             state = 'not running'
+        service = self.get_cloudify_id_from_server(server)
+        if service is None:
+            service = 'openstack machine status'
         event = {
             'host': server.addresses['private'][0]['addr'],
-            'service': 'openstack machine status',
+            'service': service,
             'time': time,
             'state': state,
-            'tags': ['name={0}'.format(
-                self.get_cloudify_id_from_server(server))],
             'ttl': self.ttl
         }
         self.reporter.report(event)
