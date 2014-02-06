@@ -22,7 +22,7 @@ import logging
 
 import bernhard
 import tasks
-
+from cloudify.manager import get_node_state, update_node_state
 
 class Reporter(object):
 
@@ -88,6 +88,8 @@ class OpenstackStatusMonitor(object):
         service = self.get_cloudify_id_from_server(server)
         if service is None:
             service = 'openstack machine status'
+        else:
+            publish_ips(server, service)
         event = {
             'host': server.addresses['private'][0]['addr'],
             'service': service,
@@ -101,6 +103,15 @@ class OpenstackStatusMonitor(object):
         sys.stdout.write("Trying to shutdown monitor process")
         self.reporter.stop()
         self.continue_running = False
+
+
+def publish_ips(server, service):
+    node_state = get_node_state(service)
+    if 'ips' in node_state:
+        return
+    ips = map(lambda ip_obj: ip_obj['addr'], server.addresses['private'])
+    node_state['ips'] = ips
+    update_node_state(node_state)
 
 
 def parse_arguments():
