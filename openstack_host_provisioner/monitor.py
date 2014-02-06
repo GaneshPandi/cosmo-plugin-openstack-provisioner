@@ -24,6 +24,7 @@ import bernhard
 import tasks
 from cloudify.manager import get_node_state, update_node_state
 
+
 class Reporter(object):
 
     def __init__(self, args):
