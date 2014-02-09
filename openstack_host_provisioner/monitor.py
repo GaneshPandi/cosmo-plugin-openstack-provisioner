@@ -108,7 +108,7 @@ class OpenstackStatusMonitor(object):
 
 def publish_ips(server, service):
     node_state = get_node_state(service)
-    if 'ips' in node_state:
+    if 'ips' in node_state and len(node_state['ips']) > 1:
         return
     ips = map(lambda ip_obj: ip_obj['addr'], server.addresses['private'])
     node_state['ips'] = ips
