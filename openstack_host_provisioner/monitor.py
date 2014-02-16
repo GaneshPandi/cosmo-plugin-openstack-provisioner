@@ -83,9 +83,9 @@ class OpenstackStatusMonitor(object):
 
     def report_server(self, server, time):
         if server.status == 'ACTIVE':
-            state = 'running'
+            state = 'started'
         else:
-            state = 'not running'
+            state = 'stopped'
         service = self.get_cloudify_id_from_server(server)
         if service is None:
             service = 'openstack machine status'
@@ -96,7 +96,8 @@ class OpenstackStatusMonitor(object):
             'service': service,
             'time': time,
             'state': state,
-            'ttl': self.ttl
+            'ttl': self.ttl,
+            'tags': ['cloudify_node']
         }
         self.reporter.report(event)
 
